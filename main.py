@@ -13,6 +13,7 @@ from aiogram.utils.callback_data import CallbackData
 from aiogram.utils.helper import Helper, HelperMode, ListItem
 from cgitb import text
 import logging, sqlite3, aiogram, datetime, asyncio, random, keyboard
+from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 
 db = sqlite3.connect("baza.db")
@@ -101,9 +102,14 @@ async def process_name(message: types.Message, state: FSMContext):
         e_id = random.randint(0, 9999)
         e_comment = message.text
         await state.finish()
-        await message.answer("Ивент создан")
+        await message.answer(f"📢 ивент - {e_name} \n дата: {e_time} \n место: {e_place} \n комментарий: {e_comment}")
         sql.execute(f"INSERT INTO events VALUES ({e_id}, {1}, ?,?,?,?)", (e_name, e_time, e_comment, e_place))
         db.commit()
+
+@dp.callback_query_handler(text="events")
+async def check(call: types.CallbackQuery):
+    await call.message.answer("mayot")
+
 
 @dp.message_handler(content_types=['text'])
 async def main(message : types.Message):
@@ -122,6 +128,18 @@ async def main(message : types.Message):
     if message.text == "создать ивент":
         await message.answer("Хорошо, напиши название ивента")
         await CreateEvent.event.set()
+
+    if message.text == 'общие ивенты':
+        for i in sql.execute(f"SELECT * FROM events"):
+            events_name = i[2]
+            events_ids = i[0]
+            events_com = i[4]
+            print(events_name)
+            all_events = types.InlineKeyboardMarkup()
+            some_event = types.InlineKeyboardButton(events_name, callback_data='events')
+            all_events.add(some_event)
+            await message.answer(f"тусовка - {events_name} \n id ивента: {events_ids} \n комментарий: {events_com}", reply_markup=all_events)
+
 
 
 if __name__ == '__main__':
