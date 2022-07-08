@@ -72,12 +72,13 @@ async def process_name(message: types.Message, state: FSMContext):
         global e_name
         e_name = message.text
         await state.finish()
-        await message.answer("Напиши когда начнётся ивент (например: 17 июня 18:00")
+        await message.answer("Напиши число ивента (например: 17.07 18:00")
         await CreateEvent.time.set()
 
 @dp.message_handler(state=CreateEvent.time)
 async def process_name(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
+        print(datetime.datetime.now())
         global e_time
         e_time = message.text
         await state.finish()
@@ -106,18 +107,33 @@ async def process_name(message: types.Message, state: FSMContext):
         sql.execute(f"INSERT INTO events VALUES ({e_id}, {1}, ?,?,?,?)", (e_name, e_time, e_comment, e_place))
         db.commit()
 
-@dp.callback_query_handler(text="events")
+@dp.callback_query_handler(lambda c: c.data and c.data.startswith('info_'))
 async def check(call: types.CallbackQuery):
-    await call.message.answer("mayot")
+    event_id = call.data[call.data.find("_") + 1 : ]
+    print(event_id)
+    for info in sql.execute(f"SELECT * FROM events WHERE id = {event_id}"):
+        isgo = types.InlineKeyboardMarkup()
+        igo = types.InlineKeyboardButton('я пойду', callback_data=f'isgo_{info[0]}')
+        isgo.insert(igo)
+        desc_event = f'тусовка - {info[2]} \n {info[3]}  \n place: {info[5]} \n комментарий: {info[4]} \n event_id: {info[0]}'
+        await call.message.answer(desc_event, reply_markup=isgo)
 
+@dp.callback_query_handler(lambda c: c.data and c.data.startswith('isgo_'))
+async def check(call: types.CallbackQuery):
+    event_id = call.data[call.data.find("_") + 1:]
+    sql.execute(f"UPDATE users SET events = {event_id} WHERE user = {call.from_user.id} ")
+    db.commit()
+    await call.message.answer('записал тебя в базу данных :)', reply_markup=keyboard.start)
 
 @dp.message_handler(content_types=['text'])
 async def main(message : types.Message):
     if message.text == 'ивенты':
         for i in sql.execute(f"SELECT events FROM users WHERE user = {message.from_user.id}"):
             some_events = i
-            if sql.fetchone() != None:
-                await message.answer(f"привет, {message.from_user.first_name}, твои ивенты {some_events}", reply_markup=keyboard.events_func, parse_mode='Markdown')
+            print(some_events[0])
+            if some_events[0] != 'None':
+                for i in sql.execute(f"SELECT name FROM events WHERE id = {some_events[0]}"):
+                    await message.answer(f"привет, {message.from_user.first_name}, твои ивенты - {i[0]}", reply_markup=keyboard.events_func, parse_mode='Markdown')
             else:
                 await message.answer(f"привет, {message.from_user.first_name}, у тебя нету активных ивентов", reply_markup=keyboard.events_func, parse_mode='Markdown')
     if message.text == 'settings':
@@ -130,15 +146,17 @@ async def main(message : types.Message):
         await CreateEvent.event.set()
 
     if message.text == 'общие ивенты':
+        # some gay function)))
+        all_events = types.InlineKeyboardMarkup()
         for i in sql.execute(f"SELECT * FROM events"):
             events_name = i[2]
             events_ids = i[0]
             events_com = i[4]
-            print(events_name)
-            all_events = types.InlineKeyboardMarkup()
-            some_event = types.InlineKeyboardButton(events_name, callback_data='events')
-            all_events.add(some_event)
-            await message.answer(f"тусовка - {events_name} \n id ивента: {events_ids} \n комментарий: {events_com}", reply_markup=all_events)
+            print(f'{events_com}, {events_ids},{events_name}')
+            print(events_ids)
+            some_event = types.InlineKeyboardButton(events_name, callback_data=f'info_{events_ids}')
+            all_events.insert(some_event)
+        await message.answer(f"ивенты:", reply_markup=all_events)
 
 
 
