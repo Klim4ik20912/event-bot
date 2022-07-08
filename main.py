@@ -163,8 +163,7 @@ async def main(message : types.Message):
                     some_event = types.InlineKeyboardButton(event_name, callback_data=f'info_{event_id}')
                     event_but.insert(some_event)
                     rand_greet = random.choice(random_greeting)
-                    caption = f'{rand_greet}, {message.from_user.first_name}. твои тусовки:'
-                    await bot.send_photo(message.from_user.id, types.InputFile('img/events.jpg'), caption=(caption), reply_markup=event_but,  parse_mode='Markdown')
+                    await message.answer(f'{rand_greet}, {message.from_user.first_name}. твои тусовки:', reply_markup=event_but, parse_mode='Markdown')
                     await message.answer(f"меню", reply_markup=keyboard.events_func, parse_mode='Markdown')
             else:
                 await message.answer(f"привет, {message.from_user.first_name}, у тебя нету активных ивентов", reply_markup=keyboard.events_func, parse_mode='Markdown')
@@ -211,13 +210,14 @@ async def notification():
         event_name = i[2]
         now = datetime.datetime.now()
         date_time_str = now.strftime("%Y.%m.%d.%H.%M")
-        events_time = datetime.datetime.strptime(time,'%Y.%m.%d.%H.%M')
+        events_time = datetime.datetime.strptime(time, '%Y.%m.%d.%H.%M')
         count = events_time - now
         if int(count.seconds / 3600) <= 1 and int(count.seconds / 3600) > -1:
+            print('yessss')
             for b in sql.execute(f"SELECT user FROM users WHERE events = {event_id}"):
                 some_notif = random.choice(random_notif)
-                caption = f'📢 ивент - {event_name}. \n {some_notif} '
-                await bot.send_photo(b[0], types.InputFile('img/notif.jpg'), caption=(caption), parse_mode='Markdown')
+                caption = f'📢 ивент - {event_name}. \n {some_notif}'
+                await bot.send_message(b[0], str(caption))
         else:
             print('нет доступных уведомлений :(')
 
