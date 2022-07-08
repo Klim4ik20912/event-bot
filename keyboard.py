@@ -17,4 +17,4 @@ global_event = types.KeyboardButton("общие ивенты")
 
 start.add(events_but, settings_but).add
 settings.add(quit_party_but, back_menu_but).add
-events_func.add(create_event, global_event).add(back_menu_but)
+events_func.add(global_event, back_menu_but)
