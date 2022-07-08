@@ -44,7 +44,7 @@ events TEXT
 )""")
 db.commit()
 
-bot = Bot(token='5428307171:AAEDLW3LbtefPwNezErwG_bxtodXGxuxoPM')
+bot = Bot(token='TOKEN')
 
 dp = Dispatcher(bot, storage=MemoryStorage())
 
