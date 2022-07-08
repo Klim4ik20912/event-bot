@@ -44,7 +44,7 @@ events TEXT
 )""")
 db.commit()
 
-bot = Bot(token='TOKEN')
+bot = Bot(token='5428307171:AAEDLW3LbtefPwNezErwG_bxtodXGxuxoPM')
 
 dp = Dispatcher(bot, storage=MemoryStorage())
 
@@ -122,10 +122,12 @@ async def check(call: types.CallbackQuery):
     event_id = call.data[call.data.find("_") + 1 : ]
     print(event_id)
     for info in sql.execute(f"SELECT * FROM events WHERE id = {event_id}"):
+        notgo = types.InlineKeyboardMarkup()
+        inotgo = types.InlineKeyboardButton('я не иду', callback_data=f'notgo_{info[0]}')
         isgo = types.InlineKeyboardMarkup()
         igo = types.InlineKeyboardButton('я пойду', callback_data=f'isgo_{info[0]}')
-        isgo.insert(igo)
-        desc_event = f'тусовка - {info[2]} \n {info[3]}  \n place: {info[5]} \n комментарий: {info[4]} \n event_id: {info[0]}'
+        isgo.add(igo, inotgo)
+        desc_event = f'🎸 тусовка - {info[2]} \n⌚ {info[3]}  \n📍 place: {info[5]} \n✉ комментарий: {info[4]} \n (id: {info[0]})'
         await call.message.answer(desc_event, reply_markup=isgo)
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('isgo_'))
@@ -134,6 +136,18 @@ async def check(call: types.CallbackQuery):
     sql.execute(f"UPDATE users SET events = {event_id} WHERE user = {call.from_user.id} ")
     db.commit()
     await call.message.answer('записал тебя в базу данных :)', reply_markup=keyboard.start)
+
+
+@dp.callback_query_handler(lambda c: c.data and c.data.startswith('notgo_'))
+async def check(call: types.CallbackQuery):
+    event_id = call.data[call.data.find("_") + 1:]
+    event_state = sql.execute(f"SELECT events FROM users WHERE user = {call.from_user.id}").fetchone()[0]
+    if event_state != 'None':
+        sql.execute(f"UPDATE users SET events = 'None' WHERE user = {call.from_user.id} ")
+        db.commit()
+        await call.message.answer('жаль что ты не пойдешь(', reply_markup=keyboard.start)
+    else:
+        await call.message.answer('ты и не собирался)', reply_markup=keyboard.start)
 
 @dp.message_handler(content_types=['text'])
 async def main(message : types.Message):
@@ -149,7 +163,8 @@ async def main(message : types.Message):
                     some_event = types.InlineKeyboardButton(event_name, callback_data=f'info_{event_id}')
                     event_but.insert(some_event)
                     rand_greet = random.choice(random_greeting)
-                    await message.answer(f"{rand_greet}, {message.from_user.first_name}. твои тусовки:", reply_markup=event_but, parse_mode='Markdown')
+                    caption = f'{rand_greet}, {message.from_user.first_name}. твои тусовки:'
+                    await bot.send_photo(message.from_user.id, types.InputFile('img/events.jpg'), caption=(caption), reply_markup=event_but,  parse_mode='Markdown')
                     await message.answer(f"меню", reply_markup=keyboard.events_func, parse_mode='Markdown')
             else:
                 await message.answer(f"привет, {message.from_user.first_name}, у тебя нету активных ивентов", reply_markup=keyboard.events_func, parse_mode='Markdown')
@@ -179,6 +194,14 @@ async def main(message : types.Message):
         sql.execute(f"UPDATE users SET events = 'None' WHERE user = {message.from_user.id}")
         db.commit()
         await message.answer(f"отписал тебя от ивента.", reply_markup=keyboard.start)
+
+    if message.text.startswith('rm_'):
+        e_event = message.text
+        del_event = e_event[e_event.find("_") + 1:]
+        sql.execute(f"DELETE FROM events WHERE id={del_event}")
+        db.commit()
+        await message.answer(f'ивент {del_event} был удален из базы.')
+
 
 async def notification():
     print('notification')
