@@ -15,6 +15,16 @@ from cgitb import text
 import logging, sqlite3, aiogram, datetime, asyncio, random, keyboard
 from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from geopy.geocoders import Nominatim
+import ssl
+import certifi
+import geopy.geocoders
+
+ctx = ssl.create_default_context(cafile=certifi.where())
+geopy.geocoders.options.default_ssl_context = ctx
+
+# calling the nominatim tool
+geoLoc = Nominatim(user_agent="GetLoc")
 scheduler = AsyncIOScheduler()
 
 random_notif = [
@@ -57,6 +67,11 @@ class CreateEvent(StatesGroup):
     place = State()
     comment = State()
 
+class GetPlace(StatesGroup):
+    get = State()
+    geocode = State()
+
+
 
 
 
@@ -92,14 +107,16 @@ async def process_name(message: types.Message, state: FSMContext):
         global e_time
         e_time = message.text
         await state.finish()
-        await message.answer("Где будет проиходить ивент?")
+        await message.answer("отправь геолокацию где будет проходить тусовка.", parse_mode='Markdown')
         await CreateEvent.place.set()
 
-@dp.message_handler(state=CreateEvent.place)
-async def process_name(message: types.Message, state: FSMContext):
+@dp.message_handler(content_types=['location'], state=CreateEvent.place)
+async def process_name(message: types.location, state: FSMContext):
     async with state.proxy() as data:
         global e_place
-        e_place = message.text
+        lat = message['location']['latitude']
+        long = message['location']['longitude']
+        e_place = f'{lat}, {long}'
         await state.finish()
         await message.answer("Напиши комментарий к ивенту")
         await CreateEvent.comment.set()
@@ -117,6 +134,28 @@ async def process_name(message: types.Message, state: FSMContext):
         sql.execute(f"INSERT INTO events VALUES ({e_id}, {1}, ?,?,?,?)", (e_name, e_time, e_comment, e_place))
         db.commit()
 
+@dp.message_handler(state=GetPlace.get, content_types=['location'])
+async def main(message : types.Location, state: FSMContext):
+    async with state.proxy() as data:
+        lat = message['location']['latitude']
+        long = message['location']['longitude']
+        locname = geoLoc.reverse(f'{lat}, {long}')
+        print(locname)
+        event_id = sql.execute(f'SELECT events FROM users WHERE user = {message.from_user.id}').fetchone()[0]
+        print(f'event id {event_id}')
+        event_place = sql.execute(f'SELECT place FROM events WHERE id = {event_id}').fetchone()[0]
+        event_geocode = geoLoc.reverse(event_place)
+        await state.finish()
+        if str(locname) in event_geocode:
+            await bot.send_message(message.from_user.id, 'удачно повеселиться :)', reply_markup=keyboard.events_func)
+        else:
+            await bot.send_message(message.from_user.id, 'не ври алгоритму :( \n мне обидно...', reply_markup=keyboard.start)
+
+@dp.callback_query_handler(lambda c: c.data and c.data =='inplace')
+async def statistics(message: types.Message):
+    await message.answer('отправь свою геолокацию для проверки.')
+    await GetPlace.get.set()
+
 def people_counter(event_id):
     peoples = sql.execute(f"SELECT user FROM users WHERE events = {event_id}").fetchall()
     return peoples
@@ -130,7 +169,9 @@ async def check(call: types.CallbackQuery):
                 inotgo = types.InlineKeyboardButton('я не иду', callback_data=f'notgo_{info[0]}')
                 isgo = types.InlineKeyboardMarkup()
                 igo = types.InlineKeyboardButton('я пойду', callback_data=f'isgo_{info[0]}')
-                isgo.add(igo, inotgo)
+                ionplace = types.InlineKeyboardMarkup()
+                inplace = types.InlineKeyboardButton(text='на месте 📍', callback_data='inplace', request_location=True)
+                isgo.add(igo, inotgo).add(inplace)
                 peoples = people_counter(event_id)
                 print(f'человек {peoples}')
                 if peoples == None:
@@ -213,6 +254,10 @@ async def main(message : types.Message):
         sql.execute(f"DELETE FROM events WHERE id={del_event}")
         db.commit()
         await message.answer(f'ивент {del_event} был удален из базы.')
+
+    if message.text == 'на месте 📍':
+        await message.answer('пришли свою геолокацию для проверки')
+        await GetPlace.get.set()
 
 
 async def notification():
