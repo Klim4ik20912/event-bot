@@ -117,18 +117,26 @@ async def process_name(message: types.Message, state: FSMContext):
         sql.execute(f"INSERT INTO events VALUES ({e_id}, {1}, ?,?,?,?)", (e_name, e_time, e_comment, e_place))
         db.commit()
 
+def people_counter(event_id):
+    peoples = sql.execute(f"SELECT user FROM users WHERE events = {event_id}").fetchall()
+    return peoples
+
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('info_'))
 async def check(call: types.CallbackQuery):
-    event_id = call.data[call.data.find("_") + 1 : ]
-    print(event_id)
-    for info in sql.execute(f"SELECT * FROM events WHERE id = {event_id}"):
-        notgo = types.InlineKeyboardMarkup()
-        inotgo = types.InlineKeyboardButton('я не иду', callback_data=f'notgo_{info[0]}')
-        isgo = types.InlineKeyboardMarkup()
-        igo = types.InlineKeyboardButton('я пойду', callback_data=f'isgo_{info[0]}')
-        isgo.add(igo, inotgo)
-        desc_event = f'🎸 тусовка - {info[2]} \n⌚ {info[3]}  \n📍 place: {info[5]} \n✉ комментарий: {info[4]} \n (id: {info[0]})'
-        await call.message.answer(desc_event, reply_markup=isgo)
+        event_id = call.data[call.data.find("_") + 1 : ]
+        print(event_id)
+        for info in sql.execute(f"SELECT * FROM events WHERE id = {event_id}"):
+                notgo = types.InlineKeyboardMarkup()
+                inotgo = types.InlineKeyboardButton('я не иду', callback_data=f'notgo_{info[0]}')
+                isgo = types.InlineKeyboardMarkup()
+                igo = types.InlineKeyboardButton('я пойду', callback_data=f'isgo_{info[0]}')
+                isgo.add(igo, inotgo)
+                peoples = people_counter(event_id)
+                print(f'человек {peoples}')
+                if peoples == None:
+                    peoples = 0
+                desc_event = f'🎸 тусовка - {info[2]} \n⌚ {info[3]}  \n📍 place: {info[5]} \n✉ комментарий: {info[4]} \n🕶 идет: {len(peoples)} человек \n (id: {info[0]})'
+                await call.message.answer(desc_event, reply_markup=isgo)
 
 @dp.callback_query_handler(lambda c: c.data and c.data.startswith('isgo_'))
 async def check(call: types.CallbackQuery):
@@ -168,7 +176,7 @@ async def main(message : types.Message):
             else:
                 await message.answer(f"привет, {message.from_user.first_name}, у тебя нету активных ивентов", reply_markup=keyboard.events_func, parse_mode='Markdown')
     if message.text == 'settings':
-        await message.answer(f"{message.from_user.first_name}, настройки", reply_markup=keyboard.settings, parse_mode='Markdown')
+        await message.answer(f"{message.from_user.first_name}, настройки (v1.8)", reply_markup=keyboard.settings, parse_mode='Markdown')
     if message.text == 'back to menu':
         await message.answer(f"привет, {message.from_user.first_name}, я events bot", reply_markup=keyboard.start, parse_mode='Markdown')
 
@@ -187,7 +195,12 @@ async def main(message : types.Message):
             print(events_ids)
             some_event = types.InlineKeyboardButton(events_name, callback_data=f'info_{events_ids}')
             all_events.insert(some_event)
-        await message.answer(f"ивенты:", reply_markup=all_events)
+        b = sql.execute(f"SELECT * FROM events").fetchall()
+        print(b)
+        if b != []:
+            await message.answer(f"доступные тусовки:", reply_markup=all_events)
+        else:
+            await message.answer(f"на данный момент нету активных тусовок. \n попробуй заглянуть позже 🏜", reply_markup=all_events)
 
     if message.text == 'quit patry':
         sql.execute(f"UPDATE users SET events = 'None' WHERE user = {message.from_user.id}")
@@ -226,7 +239,17 @@ async def notification():
 async def on_startup(dp):
     # Каждые 60 минут запускаем рассылку
     scheduler.add_job(notification, "interval", minutes=60)
-    print('бот запущен')
+    print('')
+    print('-------------------------------')
+    print('  Скрипт бота тг для бани запущен.')
+    print('  Разработчик: Клим Черемных ')
+    print('  GitHub: https://github.com/Klim4ik20912')
+    print('  Вк: https://vk.com/kl_life')
+    print('  Дс: oper#7040')
+    print('-------------------------------')
+    print('')
+
+    await bot.send_message(732652304, 'Бот запущен!')
 
 
 if __name__ == '__main__':
