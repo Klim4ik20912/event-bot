@@ -286,7 +286,7 @@ async def on_startup(dp):
     scheduler.add_job(notification, "interval", minutes=60)
     print('')
     print('-------------------------------')
-    print('  Скрипт бота тг для бани запущен.')
+    print('  Скрипт бота events запущен.')
     print('  Разработчик: Клим Черемных ')
     print('  GitHub: https://github.com/Klim4ik20912')
     print('  Вк: https://vk.com/kl_life')
