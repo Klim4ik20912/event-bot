@@ -1,0 +1,121 @@
+from io import BytesIO
+
+import requests
+import json
+import PIL
+from PIL import Image
+
+date = '2022-09-21'
+
+def auth(login, password):
+    try:
+        url = 'https://msapi.top-academy.ru/api/v2/auth/login'
+
+        user_agent_val = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36'
+
+        session = requests.Session()
+        r = session.get(url, headers={
+            'User-Agent': user_agent_val
+        })
+
+        session.headers.update({'Referer': url})
+
+        session.headers.update({'User-Agent': user_agent_val})
+
+        _xsrf = session.cookies.get('_xsrf', domain=".top-academy.ru")
+
+        post_request = session.post(url, {
+            'backUrl': 'https://msapi.top-academy.ru/api/v2/auth/login',
+            'username': f'{login}',
+            'password': f'{password}',
+            'application_key': "6a56a5df2667e65aab73ce76d1dd737f7d1faef9c52e8b8c55ac75f565d8e8a6",
+
+            '_xsrf': _xsrf,
+            'remember': 'yes',
+        })
+
+        json_response = post_request.json()
+
+        access_token = json_response['access_token']
+        print(access_token)
+        return access_token
+    except:
+        print('101 auth error!')
+
+def get_timetable(access_token, date_today):
+    try:
+        url = f'https://msapi.top-academy.ru/api/v2/schedule/operations/get-by-date?date_filter={date_today}'
+        headers = {'Authorization': f'Bearer {access_token}'}
+        r = requests.get(url, headers=headers)
+        reqtojson = r.json()
+        timetable = reqtojson
+        tables = []
+        for i in timetable:
+            room_name = i['room_name']
+            subject_name = i['subject_name']
+            started_at = i['started_at']
+            finished_at = i['finished_at']
+            lesson = i['lesson']
+            teacher_name = i['teacher_name']
+            #print(f'{subject_name} - {teacher_name}, {lesson}, {started_at}-{finished_at}')
+            tables.append(str(f'{lesson}. {subject_name} - {teacher_name}, ауд ({room_name}) {started_at}-{finished_at}'))
+        return tables
+        return r.text
+    except:
+        return 'error 102'
+
+def get_activity(access_token):
+    url = 'https://msapi.top-academy.ru/api/v2/dashboard/progress/leader-stream-points'
+    headers = {'Authorization': f'Bearer {access_token}'}
+    r = requests.get(url, headers=headers)
+    res_json = r.json()
+    stream_leader = res_json['studentPosition']
+    url = 'https://msapi.top-academy.ru/api/v2/dashboard/progress/leader-group-points'
+    header = {'Authorization': f'Bearer {access_token}'}
+    b = requests.get(url, headers=header)
+    es_json = b.json()
+    group_leader = es_json['studentPosition']
+    return f'🏆 доска лидеров -\n{stream_leader} в потоке\n{group_leader} в группе'
+
+def get_avatar(access_token, user_id):
+    url = 'https://msapi.top-academy.ru/api/v2/settings/user-info'
+    headers = {'Authorization': f'Bearer {access_token}'}
+    r = requests.get(url, headers=headers)
+    res_json = r.json()
+    ava = res_json['photo']
+    if ava == None:
+        img = Image.open('avatars/default.jpg')
+        im1 = img.save(f"avatars/ava_{user_id}.jpg")
+    else:
+        response = requests.get(ava)
+        img = Image.open(BytesIO(response.content))
+        im1 = img.save(f"avatars/ava_{user_id}.jpg")
+
+
+def get_userinfo(access_token):
+    activity = get_activity(access_token)
+    url = 'https://msapi.top-academy.ru/api/v2/settings/user-info'
+    headers = {'Authorization': f'Bearer {access_token}'}
+    r = requests.get(url, headers=headers)
+    res_json = r.json()
+    print(res_json)
+    user_photo = res_json['photo']
+    full_name = res_json['full_name']
+    group_name = res_json['group_name']
+    stream_name = res_json['stream_name']
+    gaming_points = res_json['gaming_points']
+    topcoins = gaming_points[0]['points']
+    topgems = gaming_points[1]['points']
+    level = res_json['level']
+    topmoney = topcoins + topgems
+    return f'🍂 {stream_name} - {group_name} \n{full_name} \n{activity} \nТОПМАНИ: {topmoney} ♦\n'
+
+def get_group_id(access_token):
+    activity = get_activity(access_token)
+    url = 'https://msapi.top-academy.ru/api/v2/settings/user-info'
+    headers = {'Authorization': f'Bearer {access_token}'}
+    r = requests.get(url, headers=headers)
+    res_json = r.json()
+    print(res_json)
+    group_id = res_json['current_group_id']
+    return group_id
