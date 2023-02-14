@@ -112,7 +112,7 @@ async def hello(ctx, user: discord.Member):
 @bot.event
 async def on_ready():
     print(f"{bot.user} is ready and online!")
-    await bot.change_presence(status=discord.Status.dnd, activity=discord.Activity(type=discord.ActivityType.playing, name="кумар 😮‍💨"))
+    await bot.change_presence(status=discord.Status.dnd, activity=discord.Activity(type=discord.ActivityType.playing, name="lui? 💨"))
 
 
 @bot.slash_command(aliases=['add-shop'])
@@ -288,6 +288,13 @@ async def huy(ctx):
 
     await ctx.respond("Hello! Here's a cool embed.", embed=embed)  # Send the embed with some text
 
+def restart_db():
+    db = sqlite3.connect("baza.db")
+    sql = db.cursor()
+    print('success db reload')
+
 if __name__ == '__main__':
     # Запускаем бота
+    scheduler.start()
+    scheduler.add_job(restart_db, "interval", seconds=3600)
     bot.run(config.TOKEN)
